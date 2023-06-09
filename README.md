@@ -1,3 +1,8 @@
+## 설치 하고 에러나면
+https://github.com/pytorch/pytorch/issues/88038 참고
+
+
+
 <p align="center">
   <img src="./example/IAM.png">
 </p>
