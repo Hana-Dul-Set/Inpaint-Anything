@@ -14,6 +14,9 @@ import os
 import json
 from tqdm import tqdm
 
+OUTPUT_ERROR_PATH = "./exception_log.txt"
+OUTPUT_SKIPPED_PATH = "./skipped_log.txt"
+
 def read_json(file_path):
     with open(file_path) as file:
         data = json.load(file)
@@ -64,19 +67,6 @@ def run_impaint(input_img, point_coords, dilate_kernel_size, output_dir):
         # save the mask
         save_array_to_img(mask, mask_p)
 
-        # save the pointed and masked image
-        dpi = plt.rcParams['figure.dpi']
-        height, width = img.shape[:2]
-        plt.figure(figsize=(width/dpi/0.77, height/dpi/0.77))
-        plt.imshow(img)
-        plt.axis('off')
-        show_points(plt.gca(), [latest_coords], point_labels,
-                    size=(width*0.04)**2)
-        plt.savefig(img_points_p, bbox_inches='tight', pad_inches=0)
-        show_mask(plt.gca(), mask, random_color=False)
-        plt.savefig(img_mask_p, bbox_inches='tight', pad_inches=0)
-        plt.close()
-
     # inpaint the masked image
     for idx, mask in enumerate(masks):
         mask_p = out_dir / f"mask_{idx}.png"
@@ -88,10 +78,9 @@ def run_impaint(input_img, point_coords, dilate_kernel_size, output_dir):
 
 
 all_image_names = get_file_names_in_dir('../all_image_files')
-print(all_image_names)
 
 
-file_path = "../all_keypoints_0609.json" 
+file_path = "../pose_dataset_0614.json" 
 json_data = read_json(file_path)
 
 def find_dict(dict_list, key, value):
@@ -102,22 +91,16 @@ def find_dict(dict_list, key, value):
     return results
 
 no_peoples = []
+skipped = []
 
-for image_name in tqdm(all_image_names):
-    people_datas = find_dict(json_data, "image_id", image_name)
+already_done = os.listdir("../inpaint_results/")
+for image_data in tqdm(json_data):
+    '''if os.path.splitext(image_name)[0] in already_done:
+        skipped.append(image_name)
+        continue'''
+    image_name = image_data['name']
 
-    if len(people_datas) == 0:
-        #print(f"{image_name} has no people")
-        no_peoples.append(image_name)
-        continue
-
-    scores = []
-    for i, data in enumerate(people_datas):
-        scores.append((i, data["score"]))
-    scores.sort(key=lambda x: x[1], reverse = True)
-    main_person = people_datas[scores[0][0]]
-
-    keypoints = main_person["keypoints"]
+    keypoints = image_data["keypoints"]
 
     face = [0, 1, 2, 18] #코, 눈, 눈, 목  
     leftarm = [6, 8, 10]
@@ -125,33 +108,19 @@ for image_name in tqdm(all_image_names):
     leftleg = [12, 14, 16]
     rightleg = [11, 13, 15]
 
-    is_valid_photo = True
-    arm_count = 0 
-    leg_count = 0
-    for i in range(0, 26*3, 3):
-        x, y = keypoints[i], keypoints[i+1]
-        score = keypoints[i+2]
-
-        index = i // 3
-        if index in face and score < 0.01:
-            is_valid_photo = False
-            break
-        if index in leftarm+rightarm and score >=0.01:
-            arm_count += 1
-        if index in leftleg+rightleg and score >=0.01:
-            leg_count += 1
-    if arm_count < 3 :
-        is_valid_photo = False
-
-    if not is_valid_photo:
-        print(image_name +" IS NOT VALID")
-        continue
-
-    point_coords = [keypoints[18*3], keypoints[18*3+1]]
-
+    point_coords = [keypoints[18][0], keypoints[18][1]]
+    point_coords[0] *= int(image_data['size'][0])
+    point_coords[1] *= int(image_data['size'][1])
     input_img = f"../all_image_files/{image_name}"
-    run_impaint(input_img, point_coords, 15, "../inpaint_results")
+    try:
+        run_impaint(input_img, point_coords, 15, "../inpaint_results")
+    except Exception as e:
+        with open(OUTPUT_ERROR_PATH, mode='a', encoding='utf-8', newline='') as file:
+            file.write(input_img + '\n')
 
 print(len(no_peoples))
+print(len(skipped))
 with open('../no_people.txt','w',encoding='utf-8') as f:
-    f.write(no_peoples)
+    f.write(str(no_peoples))
+with open('../skipped_log.txt','w',encoding='utf-8') as f:
+    f.write(str(skipped))

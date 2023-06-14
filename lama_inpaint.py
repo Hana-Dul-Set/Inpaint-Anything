@@ -23,6 +23,9 @@ from saicinpainting.evaluation.data import pad_tensor_to_modulo
 from utils import load_img_to_array, save_array_to_img
 
 
+loaded = False
+model = None
+
 @torch.no_grad()
 def inpaint_img_with_lama(
         img: np.ndarray,
@@ -32,6 +35,7 @@ def inpaint_img_with_lama(
         mod=8,
         device="cuda"
 ):
+    global model, loaded
     assert len(mask.shape) == 2
     if np.max(mask) == 1:
         mask = mask * 255
@@ -51,15 +55,17 @@ def inpaint_img_with_lama(
     train_config.training_model.predict_only = True
     train_config.visualizer.kind = 'noop'
 
-    checkpoint_path = os.path.join(
-        predict_config.model.path, 'models',
-        predict_config.model.checkpoint
-    )
-    model = load_checkpoint(
-        train_config, checkpoint_path, strict=False, map_location='cpu')
-    model.freeze()
-    if not predict_config.get('refine', False):
-        model.to(device)
+    if not loaded:
+        checkpoint_path = os.path.join(
+            predict_config.model.path, 'models',
+            predict_config.model.checkpoint
+        )
+        model = load_checkpoint(
+            train_config, checkpoint_path, strict=False, map_location='cpu')
+        model.freeze()
+        if not predict_config.get('refine', False):
+            model.to(device)
+        loaded = True
 
     batch = {}
     batch['image'] = img.permute(2, 0, 1).unsqueeze(0)

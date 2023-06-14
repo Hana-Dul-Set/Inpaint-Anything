@@ -35,3 +35,5 @@ model_ts*.txt
 .idea
 .vscode
 _darcs
+
+/pretrained_models/sam_vit_h_4b8939/archive/data

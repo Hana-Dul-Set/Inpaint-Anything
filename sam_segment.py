@@ -11,6 +11,10 @@ from utils import load_img_to_array, save_array_to_img, dilate_mask, \
     show_mask, show_points
 
 
+loaded = False
+predictor = None
+sam = None
+
 def predict_masks_with_sam(
         img: np.ndarray,
         point_coords: List[List[float]],
@@ -19,11 +23,15 @@ def predict_masks_with_sam(
         ckpt_p: str,
         device="cuda"
 ):
+    global loaded, predictor, sam
+
     point_coords = np.array(point_coords)
     point_labels = np.array(point_labels)
-    sam = sam_model_registry[model_type](checkpoint=ckpt_p)
-    sam.to(device=device)
-    predictor = SamPredictor(sam)
+    if not loaded:
+        sam = sam_model_registry[model_type](checkpoint=ckpt_p)
+        sam.to(device=device)
+        predictor = SamPredictor(sam)
+        loaded = True
 
     predictor.set_image(img)
     masks, scores, logits = predictor.predict(

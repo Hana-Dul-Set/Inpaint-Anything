@@ -13,6 +13,7 @@ __pycache__/
 
 # pretrained_models
 pretrained_models/big-lama
+pretrained_models/sam_vit_h_4b8939/archive/data
 # pytracking/pretrain/
 *.pth
 
